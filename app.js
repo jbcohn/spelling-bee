@@ -506,6 +506,9 @@ class SpellingBeeApp {
     this.previousWord = this.currentWord;
     this.currentWord = next;
 
+    // Prefetch dictionary sentence/definition in background if missing (e.g., custom lists)
+    this.enrichWordMetadata(this.currentWord);
+
     this.renderWordMasteryDots(this.currentWord);
     this.updateStatsRibbon();
 
@@ -756,32 +759,125 @@ class SpellingBeeApp {
   }
 
   // --- Clues & Assistance Toolbar ---
-  maskWordInText(text, word) {
-    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`\\b${escaped}\\b`, 'gi');
-    const blanks = '_'.repeat(word.length);
-    return text.replace(regex, `<span class="sentence-blank">${blanks}</span>`);
+  escapeHtml(str) {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
 
-  showSentence() {
-    if (!this.currentWord) return;
-    const sentence = this.currentWord.sentence || `Can you spell the word "${this.currentWord.word}"?`;
-    this.clueTypeTitle.textContent = 'Sentence Context';
-    this.clueContent.innerHTML = this.maskWordInText(sentence, this.currentWord.word);
-    this.clueBox.classList.remove('hidden');
+  maskWordInText(text, word) {
+    const safeText = this.escapeHtml(text);
+    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`\\b${escaped}(?:s|es|ed|ing)?\\b`, 'gi');
+    const blanks = '_'.repeat(word.length);
+    return safeText.replace(regex, `<span class="sentence-blank">${blanks}</span>`);
+  }
 
-    this.speech.speak(sentence);
+  async enrichWordMetadata(wordObj) {
+    if (!wordObj || (wordObj.sentence && wordObj.definition)) return;
+    if (wordObj._dictChecked) return;
+    wordObj._dictChecked = true;
+
+    try {
+      const resp = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(wordObj.word)}`);
+      if (!resp.ok) return;
+      const data = await resp.json();
+      if (!Array.isArray(data) || data.length === 0) return;
+
+      let foundDef = '';
+      let foundExample = '';
+
+      for (const entry of data) {
+        if (!entry.meanings) continue;
+        for (const meaning of entry.meanings) {
+          if (!meaning.definitions) continue;
+          for (const d of meaning.definitions) {
+            if (!foundDef && d.definition) {
+              foundDef = meaning.partOfSpeech
+                ? `(${meaning.partOfSpeech}) ${d.definition}`
+                : d.definition;
+            }
+            if (!foundExample && d.example) {
+              foundExample = d.example;
+            }
+            if (foundDef && foundExample) break;
+          }
+          if (foundDef && foundExample) break;
+        }
+        if (foundDef && foundExample) break;
+      }
+
+      let updated = false;
+      if (!wordObj.definition && foundDef) {
+        wordObj.definition = foundDef;
+        updated = true;
+      }
+      if (!wordObj.sentence && foundExample) {
+        wordObj.sentence = foundExample;
+        updated = true;
+      }
+      if (updated) {
+        this.saveState();
+      }
+    } catch (e) {
+      // Offline or lookup failed; fallbacks handle it
+    }
+  }
+
+  async showSentence() {
+    if (!this.currentWord) return;
+    const wordObj = this.currentWord;
+
+    if (!wordObj.sentence && !wordObj._dictChecked) {
+      this.clueTypeTitle.textContent = 'Sentence Context';
+      this.clueContent.textContent = 'Looking up an example sentence...';
+      this.clueBox.classList.remove('hidden');
+      await this.enrichWordMetadata(wordObj);
+      if (this.currentWord !== wordObj) return;
+    }
+
+    if (wordObj.sentence) {
+      this.clueTypeTitle.textContent = 'Sentence Context';
+      this.clueContent.innerHTML = this.maskWordInText(wordObj.sentence, wordObj.word);
+      this.clueBox.classList.remove('hidden');
+      this.speech.speak(wordObj.sentence);
+    } else if (wordObj.definition) {
+      this.clueTypeTitle.textContent = 'Meaning Clue (No example sentence found)';
+      this.clueContent.innerHTML = this.maskWordInText(wordObj.definition, wordObj.word);
+      this.clueBox.classList.remove('hidden');
+      this.speech.speak(`${wordObj.word}. Meaning: ${wordObj.definition}`);
+    } else {
+      this.clueTypeTitle.textContent = 'Clue';
+      this.clueContent.textContent = `No sentence available for this ${wordObj.word.length}-letter word. Try Hint or Definition!`;
+      this.clueBox.classList.remove('hidden');
+      this.speech.speakWord(wordObj.word, true);
+    }
+
     this.wordInput.focus();
   }
 
-  showDefinition() {
+  async showDefinition() {
     if (!this.currentWord) return;
-    const def = this.currentWord.definition || 'No definition available for this word.';
+    const wordObj = this.currentWord;
+
+    if (!wordObj.definition && !wordObj._dictChecked) {
+      this.clueTypeTitle.textContent = 'Definition';
+      this.clueContent.textContent = 'Looking up definition...';
+      this.clueBox.classList.remove('hidden');
+      await this.enrichWordMetadata(wordObj);
+      if (this.currentWord !== wordObj) return;
+    }
+
+    const def = wordObj.definition || 'No definition available for this word.';
     this.clueTypeTitle.textContent = 'Definition';
-    this.clueContent.innerHTML = this.maskWordInText(def, this.currentWord.word);
+    this.clueContent.innerHTML = this.maskWordInText(def, wordObj.word);
     this.clueBox.classList.remove('hidden');
 
-    this.speech.speak(`Definition: ${def}`);
+    if (wordObj.definition) {
+      this.speech.speak(`Definition: ${def}`);
+    }
     this.wordInput.focus();
   }
 
