@@ -132,8 +132,10 @@
               placeholder="Type spelling here..." 
               autocomplete="off" 
               autocorrect="off" 
-              autocapitalize="off" 
+              autocapitalize="none" 
               spellcheck="false"
+              enterkeyhint="done"
+              data-lpignore="true"
               aria-label="Type your spelling here"
               autofocus
             />
@@ -146,6 +148,9 @@
             <button type="button" id="btn-give-up" class="btn-text-subtle" title="Show spelling and learn it">
               I don't know this word
             </button>
+            <button type="button" id="btn-toggle-osk" class="btn-osk-toggle" title="Toggle built-in keyboard (prevents phone spellcheck)">
+              ⌨️ No-Spellcheck Keys
+            </button>
             <div class="word-mastery-level" id="current-word-level" title="Current word mastery level">
               <!-- Rendered as 3 stars / dots -->
             </div>
@@ -155,6 +160,48 @@
         <!-- Feedback Card (Correct / Mistake) -->
         <div id="feedback-panel" class="feedback-panel hidden">
           <!-- Populated dynamically -->
+        </div>
+
+        <!-- Built-in Anti-Spellcheck On-Screen Keyboard (Ideal for Android/Mobile) -->
+        <div id="onscreen-keyboard" class="osk-container hidden" aria-label="On-screen spelling keyboard">
+          <div class="osk-row">
+            <button type="button" class="osk-key" data-key="q">q</button>
+            <button type="button" class="osk-key" data-key="w">w</button>
+            <button type="button" class="osk-key" data-key="e">e</button>
+            <button type="button" class="osk-key" data-key="r">r</button>
+            <button type="button" class="osk-key" data-key="t">t</button>
+            <button type="button" class="osk-key" data-key="y">y</button>
+            <button type="button" class="osk-key" data-key="u">u</button>
+            <button type="button" class="osk-key" data-key="i">i</button>
+            <button type="button" class="osk-key" data-key="o">o</button>
+            <button type="button" class="osk-key" data-key="p">p</button>
+          </div>
+          <div class="osk-row osk-row-mid">
+            <button type="button" class="osk-key" data-key="a">a</button>
+            <button type="button" class="osk-key" data-key="s">s</button>
+            <button type="button" class="osk-key" data-key="d">d</button>
+            <button type="button" class="osk-key" data-key="f">f</button>
+            <button type="button" class="osk-key" data-key="g">g</button>
+            <button type="button" class="osk-key" data-key="h">h</button>
+            <button type="button" class="osk-key" data-key="j">j</button>
+            <button type="button" class="osk-key" data-key="k">k</button>
+            <button type="button" class="osk-key" data-key="l">l</button>
+          </div>
+          <div class="osk-row">
+            <button type="button" class="osk-key osk-key-action osk-key-enter" data-key="ENTER" title="Check spelling">✓</button>
+            <button type="button" class="osk-key" data-key="z">z</button>
+            <button type="button" class="osk-key" data-key="x">x</button>
+            <button type="button" class="osk-key" data-key="c">c</button>
+            <button type="button" class="osk-key" data-key="v">v</button>
+            <button type="button" class="osk-key" data-key="b">b</button>
+            <button type="button" class="osk-key" data-key="n">n</button>
+            <button type="button" class="osk-key" data-key="m">m</button>
+            <button type="button" class="osk-key osk-key-action osk-key-back" data-key="BACK" title="Backspace">⌫</button>
+          </div>
+          <div id="osk-extra-row" class="osk-row osk-extra-row hidden">
+            <button type="button" class="osk-key osk-key-extra" data-key="-">-</button>
+            <button type="button" class="osk-key osk-key-extra" data-key="'">'</button>
+          </div>
         </div>
       </section>
 
@@ -301,6 +348,15 @@
           <div class="setting-item">
             <label for="setting-pitch">Speech Pitch (<span id="setting-pitch-val">1.0</span>)</label>
             <input type="range" id="setting-pitch" min="0.8" max="1.2" step="0.05" value="1.0" />
+          </div>
+
+          <div class="setting-item">
+            <label for="setting-osk-mode">Spelling Keyboard (Anti-Spellcheck)</label>
+            <select id="setting-osk-mode" class="setting-select">
+              <option value="auto" selected>Auto (Built-in on touchscreens)</option>
+              <option value="on">Always Built-in Keyboard (No phone spellcheck)</option>
+              <option value="off">Always Device Keyboard</option>
+            </select>
           </div>
 
           <div class="setting-item">

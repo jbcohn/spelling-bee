@@ -1,4 +1,4 @@
-const CACHE_NAME = 'spellbee-v3';
+const CACHE_NAME = 'spellbee-v4';
 const ASSETS = [
   './',
   './index.html',

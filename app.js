@@ -194,7 +194,8 @@ class SpellingBeeApp {
       pitch: 1.0,
       sfx: true,
       autoSpeak: true,
-      masteryThreshold: 3
+      masteryThreshold: 3,
+      oskMode: 'auto' // 'auto' | 'on' | 'off'
     };
 
     this.cacheDom();
@@ -241,6 +242,9 @@ class SpellingBeeApp {
     this.wordInput = document.getElementById('word-input');
     this.btnSubmit = document.getElementById('btn-submit');
     this.btnGiveUp = document.getElementById('btn-give-up');
+    this.btnToggleOsk = document.getElementById('btn-toggle-osk');
+    this.onscreenKeyboard = document.getElementById('onscreen-keyboard');
+    this.oskExtraRow = document.getElementById('osk-extra-row');
     this.currentWordLevel = document.getElementById('current-word-level');
 
     // Feedback Panel
@@ -277,6 +281,7 @@ class SpellingBeeApp {
     this.settingPitch = document.getElementById('setting-pitch');
     this.settingPitchVal = document.getElementById('setting-pitch-val');
     this.settingMasteryThreshold = document.getElementById('setting-mastery-threshold');
+    this.settingOskMode = document.getElementById('setting-osk-mode');
     this.settingSfx = document.getElementById('setting-sfx');
     this.settingAutospeak = document.getElementById('setting-autospeak');
 
@@ -512,10 +517,15 @@ class SpellingBeeApp {
     this.renderWordMasteryDots(this.currentWord);
     this.updateStatsRibbon();
 
-    // Auto-focus input
-    setTimeout(() => {
-      this.wordInput.focus();
-    }, 50);
+    // Show extra punctuation row only if current word uses hyphen or apostrophe
+    const needsPunctuation = /[-']/.test(this.currentWord.word);
+    if (this.oskExtraRow) {
+      this.oskExtraRow.classList.toggle('hidden', !needsPunctuation);
+    }
+    this.applyOskState();
+
+    // Auto-focus input (unless on-screen keyboard is active on touch)
+    setTimeout(() => this.focusInputIfNeeded(), 50);
 
     // Auto-speak word if enabled
     if (this.settings.autoSpeak) {
@@ -533,6 +543,74 @@ class SpellingBeeApp {
       dot.className = `mastery-dot ${i < word.consecutiveCorrect ? 'active' : ''}`;
       dot.title = `Mastery ${word.consecutiveCorrect}/${max}`;
       this.currentWordLevel.appendChild(dot);
+    }
+  }
+
+  // --- Built-in No-Spellcheck On-Screen Keyboard ---
+  isOskActive() {
+    if (this.settings.oskMode === 'on') return true;
+    if (this.settings.oskMode === 'off') return false;
+    return window.matchMedia('(pointer: coarse)').matches || ('ontouchstart' in window && window.innerWidth <= 900);
+  }
+
+  applyOskState() {
+    const active = this.isOskActive();
+    if (this.onscreenKeyboard) {
+      this.onscreenKeyboard.classList.toggle('hidden', !active);
+    }
+    if (this.btnToggleOsk) {
+      this.btnToggleOsk.classList.toggle('active', active);
+      this.btnToggleOsk.textContent = active ? '⌨️ No-Spellcheck: ON' : '⌨️ No-Spellcheck: OFF';
+    }
+
+    // Setting readOnly prevents Android/iOS system keyboard (and spellcheck bar) from popping up
+    this.wordInput.readOnly = active;
+    const retypeInput = document.getElementById('retype-input');
+    if (retypeInput) {
+      retypeInput.readOnly = active;
+    }
+
+    if (this.settingOskMode) {
+      this.settingOskMode.value = this.settings.oskMode;
+    }
+  }
+
+  focusInputIfNeeded() {
+    if (!this.isOskActive() && this.isAnswering) {
+      this.wordInput.focus();
+    }
+  }
+
+  handleOskKey(key) {
+    // Determine target input (main word input or retype practice box)
+    const retypeInput = document.getElementById('retype-input');
+    const nextImmediateBtn = document.getElementById('btn-next-immediate');
+
+    if (!this.isAnswering) {
+      if (retypeInput) {
+        if (key === 'BACK') {
+          retypeInput.value = retypeInput.value.slice(0, -1);
+        } else if (key === 'ENTER') {
+          const retypeBtn = document.getElementById('btn-retype-check');
+          if (retypeBtn) retypeBtn.click();
+        } else {
+          retypeInput.value += key;
+        }
+        return;
+      }
+      if (key === 'ENTER' && nextImmediateBtn) {
+        clearTimeout(this.autoAdvanceTimer);
+        nextImmediateBtn.click();
+      }
+      return;
+    }
+
+    if (key === 'BACK') {
+      this.wordInput.value = this.wordInput.value.slice(0, -1);
+    } else if (key === 'ENTER') {
+      this.checkAnswer();
+    } else {
+      this.wordInput.value += key;
     }
   }
 
@@ -698,7 +776,10 @@ class SpellingBeeApp {
     const retypeBtn = document.getElementById('btn-retype-check');
 
     if (retypeInput) {
-      setTimeout(() => retypeInput.focus(), 150);
+      retypeInput.readOnly = this.isOskActive();
+      if (!this.isOskActive()) {
+        setTimeout(() => retypeInput.focus(), 150);
+      }
 
       const verifyRetype = () => {
         if (retypeInput.value.trim().toLowerCase() === target) {
@@ -855,7 +936,7 @@ class SpellingBeeApp {
       this.speech.speakWord(wordObj.word, true);
     }
 
-    this.wordInput.focus();
+    this.focusInputIfNeeded();
   }
 
   async showDefinition() {
@@ -878,7 +959,7 @@ class SpellingBeeApp {
     if (wordObj.definition) {
       this.speech.speak(`Definition: ${def}`);
     }
-    this.wordInput.focus();
+    this.focusInputIfNeeded();
   }
 
   showHint() {
@@ -891,7 +972,7 @@ class SpellingBeeApp {
     this.clueBox.classList.remove('hidden');
 
     this.speech.speak(`The word has ${word.length} letters, and begins with ${firstLetter}`);
-    this.wordInput.focus();
+    this.focusInputIfNeeded();
   }
 
   // --- List Management ---
@@ -1171,17 +1252,17 @@ class SpellingBeeApp {
     // Speaker buttons
     this.btnSpeakMain.addEventListener('click', () => {
       if (this.currentWord) this.speech.speakWord(this.currentWord.word);
-      this.wordInput.focus();
+      this.focusInputIfNeeded();
     });
 
     this.btnSpeakAgain.addEventListener('click', () => {
       if (this.currentWord) this.speech.speakWord(this.currentWord.word);
-      this.wordInput.focus();
+      this.focusInputIfNeeded();
     });
 
     this.btnSpeakSlow.addEventListener('click', () => {
       if (this.currentWord) this.speech.speakWord(this.currentWord.word, true);
-      this.wordInput.focus();
+      this.focusInputIfNeeded();
     });
 
     // Assist buttons
@@ -1198,16 +1279,41 @@ class SpellingBeeApp {
     this.btnSubmit.addEventListener('click', () => this.checkAnswer());
     this.btnGiveUp.addEventListener('click', () => this.giveUp());
 
-    // Keyboard shortcuts
+    // Toggle built-in anti-spellcheck keyboard
+    if (this.btnToggleOsk) {
+      this.btnToggleOsk.addEventListener('click', () => {
+        const currentlyActive = this.isOskActive();
+        this.settings.oskMode = currentlyActive ? 'off' : 'on';
+        this.saveState();
+        this.applyOskState();
+        if (!this.isOskActive()) {
+          this.wordInput.focus();
+        } else {
+          this.wordInput.blur();
+        }
+      });
+    }
+
+    // On-screen keyboard key clicks
+    if (this.onscreenKeyboard) {
+      this.onscreenKeyboard.querySelectorAll('.osk-key').forEach(btn => {
+        btn.addEventListener('mousedown', (e) => e.preventDefault());
+        btn.addEventListener('click', () => {
+          this.handleOskKey(btn.dataset.key);
+        });
+      });
+    }
+
+    // Keyboard shortcuts & physical keyboard fallback when readOnly is active
     window.addEventListener('keydown', (e) => {
       // If modal is open, let modal handle it
       if (document.querySelector('.modal-overlay:not(.hidden)')) return;
 
-      if (e.code === 'Space' && document.activeElement !== this.wordInput && !document.activeElement.matches('input, textarea')) {
+      if (e.code === 'Space' && (this.isOskActive() || (document.activeElement !== this.wordInput && !document.activeElement.matches('input, textarea')))) {
         e.preventDefault();
         if (this.currentWord) this.speech.speakWord(this.currentWord.word);
-      } else if (e.key === 'Enter' && !this.isAnswering) {
-        // Pressing Enter when feedback card is showing moves to next word immediately
+      } else if (e.key === 'Enter' && !this.isAnswering && !document.getElementById('retype-input')) {
+        // Pressing Enter when Correct feedback card is showing moves to next word immediately
         clearTimeout(this.autoAdvanceTimer);
         const nextImmediateBtn = document.getElementById('btn-next-immediate');
         if (nextImmediateBtn) {
@@ -1216,6 +1322,18 @@ class SpellingBeeApp {
       } else if (e.ctrlKey && e.key.toLowerCase() === 's') {
         e.preventDefault();
         this.showSentence();
+      } else if (this.isOskActive() && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        // Allow hardware keyboard typing even when readOnly prevents mobile virtual keyboard
+        if (/^[a-zA-Z'-]$/.test(e.key)) {
+          e.preventDefault();
+          this.handleOskKey(e.key.toLowerCase());
+        } else if (e.key === 'Backspace') {
+          e.preventDefault();
+          this.handleOskKey('BACK');
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          this.handleOskKey('ENTER');
+        }
       }
     });
 
@@ -1316,6 +1434,14 @@ class SpellingBeeApp {
       this.saveState();
     });
 
+    if (this.settingOskMode) {
+      this.settingOskMode.addEventListener('change', (e) => {
+        this.settings.oskMode = e.target.value;
+        this.saveState();
+        this.applyOskState();
+      });
+    }
+
     this.settingMasteryThreshold.addEventListener('change', (e) => {
       this.settings.masteryThreshold = parseInt(e.target.value, 10);
       this.saveState();
@@ -1341,9 +1467,7 @@ class SpellingBeeApp {
 
   closeModal(modal) {
     modal.classList.add('hidden');
-    if (this.isAnswering) {
-      this.wordInput.focus();
-    }
+    this.focusInputIfNeeded();
   }
 
   registerPWA() {

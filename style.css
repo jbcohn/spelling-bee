@@ -1345,3 +1345,117 @@ kbd {
     padding: 0.35rem 0.65rem;
   }
 }
+
+/* Built-in On-Screen Keyboard (No-Spellcheck Mode) */
+.btn-osk-toggle {
+  background: var(--bg-card-subtle);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-full);
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-osk-toggle:hover {
+  border-color: var(--primary);
+  color: var(--text-primary);
+}
+
+.btn-osk-toggle.active {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: #6366f1;
+  color: #a5b4fc;
+}
+
+.osk-container {
+  margin-top: 1.25rem;
+  padding: 0.6rem 0.35rem;
+  background: #0b1120;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.osk-row {
+  display: flex;
+  justify-content: center;
+  gap: 0.3rem;
+}
+
+.osk-row-mid {
+  padding: 0 5%;
+}
+
+.osk-key {
+  flex: 1;
+  max-width: 44px;
+  height: 46px;
+  border-radius: 0.45rem;
+  border: 1px solid #334155;
+  border-bottom: 3px solid #0f172a;
+  background: #1e293b;
+  color: #f8fafc;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.08s ease, background 0.1s ease;
+  touch-action: manipulation;
+  padding: 0;
+}
+
+.osk-key:active {
+  transform: scale(0.92);
+  background: #4f46e5;
+  border-color: #6366f1;
+}
+
+.osk-key-action {
+  flex: 1.45;
+  max-width: 64px;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.osk-key-enter {
+  background: #065f46;
+  border-color: #10b981;
+  color: #ecfdf5;
+}
+
+.osk-key-enter:active {
+  background: #10b981;
+}
+
+.osk-key-back {
+  background: #334155;
+  color: #fca5a5;
+}
+
+.osk-key-extra {
+  max-width: 60px;
+  height: 36px;
+  font-size: 1rem;
+}
+
+@media (max-width: 400px) {
+  .osk-key {
+    height: 42px;
+    font-size: 1.05rem;
+  }
+  .osk-row {
+    gap: 0.22rem;
+  }
+}
