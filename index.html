@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>SpellBee - Adaptive Spelling Bee Practice</title>
+  <meta name="description" content="Audio spelling bee trainer with instant correction, spaced repetition, and custom word lists.">
+  <meta name="theme-color" content="#4f46e5">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+  <link rel="icon" type="image/png" href="./icon-192.png">
+  <link rel="stylesheet" href="./style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="app" class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-brand">
+        <span class="logo-icon">🐝</span>
+        <div>
+          <h1 class="logo-title">SpellBee</h1>
+          <p class="logo-sub">Spelling Bee Master</p>
+        </div>
+      </div>
+
+      <div class="header-controls">
+        <div class="list-dropdown-wrapper">
+          <label for="list-select" class="sr-only">Choose Word List</label>
+          <select id="list-select" class="list-select" title="Switch Word List">
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+        <button id="btn-open-words" class="btn-icon-label" title="View Words & Progress">
+          <span class="btn-icon">📋</span>
+          <span class="btn-text">Words</span>
+        </button>
+        <button id="btn-open-manage" class="btn-icon-label" title="Add or Edit Lists">
+          <span class="btn-icon">➕</span>
+          <span class="btn-text">Lists</span>
+        </button>
+        <button id="btn-open-settings" class="btn-icon-square" title="Settings">
+          ⚙️
+        </button>
+      </div>
+    </header>
+
+    <!-- Global Progress Bar -->
+    <div class="progress-bar-container">
+      <div class="progress-bar-track">
+        <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%;"></div>
+      </div>
+    </div>
+
+    <!-- Stats Ribbon -->
+    <div class="stats-ribbon">
+      <div class="stat-pill stat-mastered" title="Words spelled correctly 3+ times in a row">
+        <span class="stat-icon">🌟</span>
+        <span class="stat-value" id="stat-mastered">0</span>
+        <span class="stat-label">Mastered</span>
+      </div>
+      <div class="stat-pill stat-learning" title="Words currently being practiced">
+        <span class="stat-icon">📖</span>
+        <span class="stat-value" id="stat-learning">0</span>
+        <span class="stat-label">Learning</span>
+      </div>
+      <div class="stat-pill stat-review" title="Words missed that will appear frequently">
+        <span class="stat-icon">🎯</span>
+        <span class="stat-value" id="stat-review">0</span>
+        <span class="stat-label">To Fix</span>
+      </div>
+      <div class="stat-pill stat-streak" title="Consecutive correct answers">
+        <span class="stat-icon">🔥</span>
+        <span class="stat-value" id="stat-streak">0</span>
+        <span class="stat-label">Streak</span>
+      </div>
+    </div>
+
+    <!-- Main Quiz Area -->
+    <main class="quiz-main">
+      <!-- Active Question Card -->
+      <section id="question-card" class="card quiz-card">
+        <!-- Spoken word prompt circle -->
+        <div class="speaker-zone">
+          <button id="btn-speak-main" class="speaker-btn" aria-label="Listen to word" title="Click or press Spacebar to hear the word">
+            <span class="speaker-icon">🔊</span>
+            <span class="speaker-waves"></span>
+          </button>
+          <div class="speaker-caption">
+            <span id="speaker-status-text">Click or tap to hear word</span>
+            <span class="shortcut-tip">(or press <kbd>Space</kbd>)</span>
+          </div>
+        </div>
+
+        <!-- Word Clues / Assist Toolbar -->
+        <div class="assist-toolbar">
+          <button id="btn-speak-again" class="assist-btn" title="Repeat pronunciation">
+            <span>🔊</span> Repeat
+          </button>
+          <button id="btn-speak-slow" class="assist-btn" title="Speak word slowly">
+            <span>🐢</span> Slower
+          </button>
+          <button id="btn-show-sentence" class="assist-btn" title="Hear and see the word used in a sentence">
+            <span>💬</span> Sentence
+          </button>
+          <button id="btn-show-definition" class="assist-btn" title="Hear and see the definition">
+            <span>📖</span> Definition
+          </button>
+          <button id="btn-hint" class="assist-btn" title="Get a hint (letter count & first letter)">
+            <span>💡</span> Hint
+          </button>
+        </div>
+
+        <!-- Clue Display Area (Revealed on click) -->
+        <div id="clue-box" class="clue-box hidden">
+          <div class="clue-header">
+            <span id="clue-type-title" class="clue-type-title">Context</span>
+            <button id="btn-close-clue" class="clue-close-btn" aria-label="Dismiss clue">&times;</button>
+          </div>
+          <p id="clue-content" class="clue-content"></p>
+        </div>
+
+        <!-- Input Form -->
+        <form id="spelling-form" class="spelling-form" autocomplete="off" onsubmit="return false;">
+          <div class="input-wrapper">
+            <input 
+              type="text" 
+              id="word-input" 
+              class="word-input" 
+              placeholder="Type spelling here..." 
+              autocomplete="off" 
+              autocorrect="off" 
+              autocapitalize="off" 
+              spellcheck="false"
+              aria-label="Type your spelling here"
+              autofocus
+            />
+            <button type="submit" id="btn-submit" class="btn-submit" aria-label="Check spelling">
+              Check ➔
+            </button>
+          </div>
+
+          <div class="form-sub-actions">
+            <button type="button" id="btn-give-up" class="btn-text-subtle" title="Show spelling and learn it">
+              I don't know this word
+            </button>
+            <div class="word-mastery-level" id="current-word-level" title="Current word mastery level">
+              <!-- Rendered as 3 stars / dots -->
+            </div>
+          </div>
+        </form>
+
+        <!-- Feedback Card (Correct / Mistake) -->
+        <div id="feedback-panel" class="feedback-panel hidden">
+          <!-- Populated dynamically -->
+        </div>
+      </section>
+
+      <!-- Motivation / Completion Card (when all mastered or empty) -->
+      <section id="completion-card" class="card completion-card hidden">
+        <div class="trophy-emoji">🏆</div>
+        <h2 class="completion-title">Incredible Work!</h2>
+        <p class="completion-text">You've mastered every word in this list! Every single one!</p>
+        <div class="completion-actions">
+          <button id="btn-reset-list-progress" class="btn-primary">
+            Practice Again
+          </button>
+          <button id="btn-switch-list-completion" class="btn-secondary">
+            Switch Word List
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom Audio Controls Quick Bar -->
+    <footer class="app-footer">
+      <span class="footer-tip">Keyboard shortcuts: <kbd>Space</kbd> = Listen &bull; <kbd>Enter</kbd> = Check &bull; <kbd>Ctrl+S</kbd> = Sentence</span>
+    </footer>
+
+    <!-- MODAL 1: Word List & Stats -->
+    <div id="modal-words" class="modal-overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <h2 class="modal-title">Words in Current List</h2>
+            <p id="modal-list-subtitle" class="modal-subtitle">50 words &bull; Adaptive tracking</p>
+          </div>
+          <button class="modal-close" data-close="modal-words">&times;</button>
+        </div>
+        
+        <div class="modal-toolbar">
+          <input type="text" id="words-filter-search" class="modal-search" placeholder="Search words..." />
+          <div class="filter-tabs">
+            <button class="filter-tab active" data-filter="all">All</button>
+            <button class="filter-tab" data-filter="review">To Fix</button>
+            <button class="filter-tab" data-filter="learning">Learning</button>
+            <button class="filter-tab" data-filter="mastered">Mastered</button>
+          </div>
+        </div>
+
+        <div class="words-table-container">
+          <table class="words-table">
+            <thead>
+              <tr>
+                <th>Word</th>
+                <th>Status</th>
+                <th>Streak</th>
+                <th>Accuracy</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="words-table-body">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+
+        <div class="modal-footer">
+          <button id="btn-reset-all-stats" class="btn-danger-outline">Reset Stats for List</button>
+          <button class="btn-secondary" data-close="modal-words">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 2: Manage Lists & Add Custom Lists -->
+    <div id="modal-manage" class="modal-overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal-card modal-card-wide">
+        <div class="modal-header">
+          <div>
+            <h2 class="modal-title">Word Lists Manager</h2>
+            <p class="modal-subtitle">Create custom lists for upcoming bees or class tests</p>
+          </div>
+          <button class="modal-close" data-close="modal-manage">&times;</button>
+        </div>
+
+        <div class="manage-sections">
+          <!-- Active Lists Section -->
+          <div class="manage-section">
+            <h3 class="section-title">Your Word Lists</h3>
+            <div id="existing-lists-container" class="lists-grid">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+
+          <!-- Add New List Section -->
+          <div class="manage-section add-list-section">
+            <h3 class="section-title">Add a New Word List</h3>
+            <form id="form-new-list">
+              <div class="form-group">
+                <label for="new-list-name">List Title</label>
+                <input type="text" id="new-list-name" placeholder="e.g., Chapter 4 Spelling Bee, State Finals" required />
+              </div>
+              <div class="form-group">
+                <label for="new-list-words">Words (one per line, or comma-separated)</label>
+                <textarea id="new-list-words" rows="6" placeholder="Paste your words here!&#10;e.g.&#10;accommodate&#10;bureaucracy&#10;dilemma | She faced a difficult moral dilemma. | A difficult choice" required></textarea>
+                <small class="form-help">Tip: You can optionally add sentences/definitions with pipes: <code>word | sentence | definition</code></small>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn-primary">Create List</button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Export / Import Section -->
+          <div class="manage-section">
+            <h3 class="section-title">Backup & Share</h3>
+            <div class="backup-actions">
+              <button id="btn-export-json" class="btn-secondary">Export All Lists (JSON)</button>
+              <label class="btn-secondary file-upload-label">
+                Import Lists (JSON)
+                <input type="file" id="input-import-json" accept=".json" class="sr-only" />
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL 3: Settings -->
+    <div id="modal-settings" class="modal-overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2 class="modal-title">Settings</h2>
+          <button class="modal-close" data-close="modal-settings">&times;</button>
+        </div>
+
+        <div class="settings-body">
+          <div class="setting-item">
+            <label for="setting-voice">Voice Pronunciation</label>
+            <select id="setting-voice" class="setting-select"></select>
+            <button id="btn-test-voice" class="btn-text-action">Test Voice 🔊</button>
+          </div>
+
+          <div class="setting-item">
+            <label for="setting-rate">Speech Speed (<span id="setting-rate-val">0.9x</span>)</label>
+            <input type="range" id="setting-rate" min="0.6" max="1.3" step="0.05" value="0.9" />
+          </div>
+
+          <div class="setting-item">
+            <label for="setting-pitch">Speech Pitch (<span id="setting-pitch-val">1.0</span>)</label>
+            <input type="range" id="setting-pitch" min="0.8" max="1.2" step="0.05" value="1.0" />
+          </div>
+
+          <div class="setting-item">
+            <label for="setting-mastery-threshold">Consecutive Correct to Master</label>
+            <select id="setting-mastery-threshold" class="setting-select">
+              <option value="2">2 times in a row</option>
+              <option value="3" selected>3 times in a row (Recommended)</option>
+              <option value="4">4 times in a row</option>
+              <option value="5">5 times in a row</option>
+            </select>
+          </div>
+
+          <div class="setting-item-toggle">
+            <div>
+              <span class="setting-label">Sound Effects</span>
+              <p class="setting-desc">Play cheerful chimes and gentle audio cues</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="setting-sfx" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-item-toggle">
+            <div>
+              <span class="setting-label">Auto-Speak on New Word</span>
+              <p class="setting-desc">Automatically announce the word when it appears</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="setting-autospeak" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-secondary" data-close="modal-settings">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
