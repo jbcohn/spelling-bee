@@ -318,6 +318,18 @@ class SpellingBeeApp {
       this.saveState();
     }
 
+    // Sync default-list sentences/definitions while preserving progress stats
+    const defaultList = this.lists.find(l => l.id === 'default-list');
+    if (defaultList) {
+      defaultList.words.forEach(w => {
+        const ref = DEFAULT_WORD_LIST.find(d => d.word.toLowerCase() === w.word);
+        if (ref) {
+          w.sentence = ref.sentence || w.sentence;
+          w.definition = ref.definition || w.definition;
+        }
+      });
+    }
+
     try {
       const savedListId = localStorage.getItem('spellbee_current_list_id');
       if (savedListId && this.lists.some(l => l.id === savedListId)) {
@@ -744,27 +756,33 @@ class SpellingBeeApp {
   }
 
   // --- Clues & Assistance Toolbar ---
+  maskWordInText(text, word) {
+    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`\\b${escaped}\\b`, 'gi');
+    const blanks = '_'.repeat(word.length);
+    return text.replace(regex, `<span class="sentence-blank">${blanks}</span>`);
+  }
+
   showSentence() {
     if (!this.currentWord) return;
     const sentence = this.currentWord.sentence || `Can you spell the word "${this.currentWord.word}"?`;
     this.clueTypeTitle.textContent = 'Sentence Context';
-    // Highlight the word in sentence
-    const regex = new RegExp(`\\b${this.currentWord.word}\\b`, 'gi');
-    const highlighted = sentence.replace(regex, `<em>${this.currentWord.word}</em>`);
-    this.clueContent.innerHTML = highlighted;
+    this.clueContent.innerHTML = this.maskWordInText(sentence, this.currentWord.word);
     this.clueBox.classList.remove('hidden');
 
     this.speech.speak(sentence);
+    this.wordInput.focus();
   }
 
   showDefinition() {
     if (!this.currentWord) return;
     const def = this.currentWord.definition || 'No definition available for this word.';
     this.clueTypeTitle.textContent = 'Definition';
-    this.clueContent.textContent = def;
+    this.clueContent.innerHTML = this.maskWordInText(def, this.currentWord.word);
     this.clueBox.classList.remove('hidden');
 
     this.speech.speak(`Definition: ${def}`);
+    this.wordInput.focus();
   }
 
   showHint() {
@@ -777,6 +795,7 @@ class SpellingBeeApp {
     this.clueBox.classList.remove('hidden');
 
     this.speech.speak(`The word has ${word.length} letters, and begins with ${firstLetter}`);
+    this.wordInput.focus();
   }
 
   // --- List Management ---

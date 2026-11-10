@@ -88,7 +88,7 @@ export const DEFAULT_WORD_LIST = [
   {
     word: "mustard",
     sentence: "He put a squeeze of tangy yellow mustard on his hot pretzel.",
-    definition: "A sharp, pungent paste made from mustard seeds used as a condiment."
+    definition: "A sharp, pungent yellow condiment paste made from crushed seeds."
   },
   {
     word: "library",
@@ -222,7 +222,7 @@ export const DEFAULT_WORD_LIST = [
   },
   {
     word: "seventy",
-    sentence: "Grandpa celebrated his seventieth birthday surrounded by seventy bright candles.",
+    sentence: "There were seventy bright candles glowing on the birthday cake.",
     definition: "The number equal to seven tens; 70."
   },
   {
